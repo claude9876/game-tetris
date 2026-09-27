@@ -417,15 +417,30 @@
         }
         playMainBacksound();
 
+        const SFX_POOL_SIZE = 4;
+        const sfxPools = {};
+        ['move', 'drop', 'clear', 'gameOver'].forEach(type => {
+            sfxPools[type] = Array.from({ length: SFX_POOL_SIZE }, () => {
+                const a = new Audio(audioFiles[type].src);
+                a.volume = 0.8;
+                return a;
+            });
+        });
+        const sfxPoolIndex = {};
+
         function playSound(type) {
             if (soundMuted) return;
             if (type === 'bgm') { audioFiles.bgm.play().catch(() => {}); return; }
             if (!isGameActive) return;
-            if (audioFiles[type]) {
-                const sound = audioFiles[type].cloneNode();
-                sound.volume = 0.8;
+            const pool = sfxPools[type];
+            if (!pool) return;
+            const idx = (sfxPoolIndex[type] || 0) % pool.length;
+            sfxPoolIndex[type] = idx + 1;
+            const sound = pool[idx];
+            try {
+                sound.currentTime = 0;
                 sound.play().catch(e => console.log("SFX play failed:", e));
-            }
+            } catch (e) { console.log("SFX play failed:", e); }
         }
 
         function vibrate(ms) { if ('vibrate' in navigator) navigator.vibrate(ms); }
@@ -473,6 +488,7 @@
         let highlightedCells = new Set();
         let dragRAF = null;
         let pendingX = 0, pendingY = 0;
+        let boardMetrics = null;
 
         const boardEl = document.getElementById('board');
         const trayEl = document.getElementById('tray');
@@ -497,11 +513,25 @@
             }
         }
 
+        function measureBoardMetrics() {
+            const c0 = cellEls[0][0].getBoundingClientRect();
+            const c1x = cellEls[0][1].getBoundingClientRect();
+            const c1y = cellEls[1][0].getBoundingClientRect();
+            boardMetrics = {
+                originX: c0.left,
+                originY: c0.top,
+                pitchX: c1x.left - c0.left,
+                pitchY: c1y.top - c0.top,
+                cellSize: c0.width
+            };
+        }
+
         function initBoard() {
             board = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
             prevBoardState = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
             buildBoardDOM();
             updateBoardVisual();
+            measureBoardMetrics();
         }
 
         function blockFaceHTML(colorKey) {
@@ -703,12 +733,8 @@
             e.preventDefault();
             e.currentTarget.setPointerCapture(e.pointerId);
 
-            const c0 = cellEls[0][0].getBoundingClientRect();
-            const c1x = cellEls[0][1].getBoundingClientRect();
-            const c1y = cellEls[1][0].getBoundingClientRect();
-            const originX = c0.left, originY = c0.top;
-            const pitchX = c1x.left - c0.left, pitchY = c1y.top - c0.top;
-            const cellSize = c0.width;
+            if (!boardMetrics) measureBoardMetrics();
+            const { originX, originY, pitchX, pitchY, cellSize } = boardMetrics;
             const { rows, cols } = shapeBounds(piece.cells);
 
             ghostEl.innerHTML = '';
@@ -855,6 +881,14 @@
             tray = [null, null, null];
             refillTrayIfEmpty();
         }
+
+        let resizeTimer = null;
+        function scheduleMetricsRefresh() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(measureBoardMetrics, 150);
+        }
+        window.addEventListener('resize', scheduleMetricsRefresh);
+        window.addEventListener('orientationchange', scheduleMetricsRefresh);
 
         document.getElementById('btn-start').addEventListener('click', startGame);
         document.getElementById('btn-restart').addEventListener('click', startGame);
