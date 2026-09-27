@@ -173,7 +173,7 @@
             display: grid;
             gap: 3px;
             opacity: 0.95;
-            will-change: left, top;
+            will-change: transform;
         }
 
         /* Overlays */
@@ -470,6 +470,9 @@
         let isGameActive = false;
         let activeDrag = null;
         let lastValidAnchor = null;
+        let highlightedCells = new Set();
+        let dragRAF = null;
+        let pendingX = 0, pendingY = 0;
 
         const boardEl = document.getElementById('board');
         const trayEl = document.getElementById('tray');
@@ -527,6 +530,35 @@
 
         function clearHighlights() {
             for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) cellEls[r][c].classList.remove('hl-valid', 'hl-invalid');
+            highlightedCells.clear();
+        }
+
+        function updateHighlights(piece, anchorR, anchorC, valid) {
+            const newCells = [];
+            if (anchorR > -3 && anchorR < SIZE + 2 && anchorC > -3 && anchorC < SIZE + 2) {
+                piece.cells.forEach(([dr, dc]) => {
+                    const r = anchorR + dr, c = anchorC + dc;
+                    if (r >= 0 && r < SIZE && c >= 0 && c < SIZE) newCells.push(r * SIZE + c);
+                });
+            }
+            const newSet = new Set(newCells);
+            const cls = valid ? 'hl-valid' : 'hl-invalid';
+            const otherCls = valid ? 'hl-invalid' : 'hl-valid';
+
+            highlightedCells.forEach(key => {
+                if (!newSet.has(key)) {
+                    const r = (key / SIZE) | 0, c = key % SIZE;
+                    cellEls[r][c].classList.remove('hl-valid', 'hl-invalid');
+                }
+            });
+            newSet.forEach(key => {
+                const r = (key / SIZE) | 0, c = key % SIZE;
+                const el = cellEls[r][c];
+                el.classList.remove(otherCls);
+                el.classList.add(cls);
+            });
+
+            highlightedCells = newSet;
         }
 
         function shapeBounds(cells) {
@@ -696,51 +728,56 @@
 
             activeDrag = { idx, piece, cellSize, originX, originY, pitchX, pitchY, slotEl: e.currentTarget, cols, rows };
             lastValidAnchor = null;
-            moveGhost(e);
+            highlightedCells.clear();
+            pendingX = e.clientX;
+            pendingY = e.clientY;
+            moveGhost(pendingX, pendingY);
 
             e.currentTarget.addEventListener('pointermove', onDragMove);
             e.currentTarget.addEventListener('pointerup', onDragEnd);
             e.currentTarget.addEventListener('pointercancel', onDragEnd);
         }
 
-        function moveGhost(e) {
-            if (!activeDrag) return;
+        function moveGhost(clientX, clientY) {
+            if (!activeDrag) return { gx: 0, gy: 0 };
             const { cellSize, pitchX, pitchY, cols, rows } = activeDrag;
             const w = cols * pitchX - (pitchX - cellSize);
             const h = rows * pitchY - (pitchY - cellSize);
             const liftY = 90;
-            const gx = e.clientX - w / 2;
-            const gy = e.clientY - h - liftY + cellSize;
-            ghostEl.style.left = gx + 'px';
-            ghostEl.style.top = gy + 'px';
+            const gx = clientX - w / 2;
+            const gy = clientY - h - liftY + cellSize;
+            ghostEl.style.transform = `translate3d(${gx}px, ${gy}px, 0)`;
             return { gx, gy };
         }
 
         function onDragMove(e) {
             if (!activeDrag) return;
             e.preventDefault();
-            const { gx, gy } = moveGhost(e);
+            pendingX = e.clientX;
+            pendingY = e.clientY;
+            if (dragRAF === null) {
+                dragRAF = requestAnimationFrame(processDragFrame);
+            }
+        }
+
+        function processDragFrame() {
+            dragRAF = null;
+            if (!activeDrag) return;
+            const { gx, gy } = moveGhost(pendingX, pendingY);
             const { originX, originY, pitchX, pitchY, piece } = activeDrag;
 
-            clearHighlights();
             const anchorC = Math.round((gx - originX) / pitchX);
             const anchorR = Math.round((gy - originY) / pitchY);
             const valid = checkPlacement(piece.cells, anchorR, anchorC);
 
-            if (anchorR > -3 && anchorR < SIZE + 2 && anchorC > -3 && anchorC < SIZE + 2) {
-                piece.cells.forEach(([dr, dc]) => {
-                    const r = anchorR + dr, c = anchorC + dc;
-                    if (r >= 0 && r < SIZE && c >= 0 && c < SIZE) {
-                        cellEls[r][c].classList.add(valid ? 'hl-valid' : 'hl-invalid');
-                    }
-                });
-            }
+            updateHighlights(piece, anchorR, anchorC, valid);
             lastValidAnchor = valid ? { row: anchorR, col: anchorC } : null;
         }
 
         function onDragEnd(e) {
             if (!activeDrag) return;
             const { idx, piece, slotEl } = activeDrag;
+            if (dragRAF !== null) { cancelAnimationFrame(dragRAF); dragRAF = null; }
             clearHighlights();
             ghostEl.style.display = 'none';
             slotEl.removeEventListener('pointermove', onDragMove);
