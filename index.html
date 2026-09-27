@@ -232,6 +232,19 @@
         audioFiles.bgm.loop = true;
         audioFiles.bgm.volume = 0.4; // Volume musik latar agar tidak menutupi SFX
 
+        // Mainkan backsound utama begitu aplikasi dibuka (di layar menu)
+        function playMainBacksound() {
+            audioFiles.bgm.play().catch(() => {
+                // Jika browser memblokir autoplay, mainkan begitu ada sentuhan/klik pertama
+                const resumeOnInteraction = () => {
+                    audioFiles.bgm.play().catch(e => console.log("Audio play failed:", e));
+                };
+                document.addEventListener('touchstart', resumeOnInteraction, { once: true });
+                document.addEventListener('click', resumeOnInteraction, { once: true });
+            });
+        }
+        playMainBacksound();
+
         function playSound(type) {
             if (!isGameActive) return;
             if (type === 'bgm') {
@@ -329,7 +342,7 @@
                     this.heldPieceName = null;
                     this.vibrate([100, 50, 200]);
                     
-                    setTimeout(() => { playSound('bgm'); this.spawnPiece(); }, 2000); // Jeda sebelum restart
+                    setTimeout(() => { this.spawnPiece(); }, 2000); // Jeda sebelum restart (backsound utama tetap mati)
                 }
             }
 
@@ -633,7 +646,7 @@
         document.getElementById('btn-start').addEventListener('click', () => {
             document.getElementById('start-overlay').style.display = 'none';
             isGameActive = true;
-            playSound('bgm');
+            audioFiles.bgm.pause(); // Matikan backsound utama saat mulai bermain
             game.spawnPiece(); // Start memunculkan balok
             requestAnimationFrame(update);
         });
