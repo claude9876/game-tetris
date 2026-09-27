@@ -366,9 +366,13 @@
         async function submitScoreToRanking(name, scoreValue) {
             if (!sb) return { ok: false, reason: 'not-configured' };
             try {
-                const { error } = await sb.from(TABLE_NAME).insert({ name, score: scoreValue });
+                const deviceId = getDeviceId();
+                const { data, error } = await sb.from(TABLE_NAME)
+                    .upsert({ device_id: deviceId, name, score: scoreValue }, { onConflict: 'device_id' })
+                    .select('score')
+                    .single();
                 if (error) throw error;
-                return { ok: true };
+                return { ok: true, bestScore: data ? data.score : scoreValue };
             } catch (err) {
                 console.log('Submit score failed:', err);
                 return { ok: false, reason: 'error' };
@@ -389,6 +393,15 @@
 
         function escapeHTML(str) {
             return String(str).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+        }
+
+        function getDeviceId() {
+            let id = localStorage.getItem('bpDeviceId');
+            if (!id) {
+                id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('dev-' + Date.now() + '-' + Math.random().toString(16).slice(2));
+                localStorage.setItem('bpDeviceId', id);
+            }
+            return id;
         }
 
         // --- AUDIO MANAGER ---
@@ -865,7 +878,13 @@
             if (!sb) { statusEl.textContent = 'Ranking online belum diaktifkan.'; return; }
             statusEl.textContent = 'Mengirim...';
             const res = await submitScoreToRanking(name, score);
-            statusEl.textContent = res.ok ? 'Skor terkirim! ✔' : 'Gagal mengirim skor.';
+            if (!res.ok) {
+                statusEl.textContent = 'Gagal mengirim skor.';
+            } else if (res.bestScore > score) {
+                statusEl.textContent = `Tersimpan. Rekor kamu masih ${res.bestScore} ✔`;
+            } else {
+                statusEl.textContent = 'Skor terkirim! Rekor baru ✔';
+            }
         });
 
         // --- GAME START ---
