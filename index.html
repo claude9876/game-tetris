@@ -25,7 +25,10 @@
             box-sizing: border-box;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
         }
+
+        html, body { height: 100%; }
 
         body {
             background: radial-gradient(circle at 50% 0%, #4c5cca 0%, #313d92 55%, #232c66 100%);
@@ -34,27 +37,26 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            height: 100vh;
             height: 100dvh;
             margin: 0;
             overflow: hidden;
             touch-action: none;
+            overscroll-behavior: none;
         }
 
         /* Top Bar */
         .top-bar {
             width: 100%;
-            padding: 16px 20px 4px;
+            padding: max(16px, env(safe-area-inset-top)) 20px 4px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             z-index: 10;
+            flex-shrink: 0;
         }
 
-        .score-badge {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
+        .score-badge { display: flex; align-items: center; gap: 6px; }
         .score-badge .crown { font-size: 1.7rem; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.4)); }
         .score-badge span#bestScore {
             font-size: 1.6rem;
@@ -74,6 +76,7 @@
             cursor: pointer;
         }
         .settings-btn .badge {
+            display: none;
             position: absolute;
             top: -2px; right: -4px;
             width: 10px; height: 10px;
@@ -85,16 +88,18 @@
 
         /* Score */
         .score-display {
-            font-size: 3.4rem;
+            font-size: clamp(2.4rem, 9vw, 3.4rem);
             font-weight: 800;
             color: #fff;
-            margin: 4px 0 14px;
+            margin: 4px 0 10px;
             text-shadow: 0 3px 6px rgba(0,0,0,0.3);
+            flex-shrink: 0;
         }
 
         /* Board */
         .board-wrap {
             flex: 1;
+            min-height: 0;
             width: 100%;
             display: flex;
             align-items: center;
@@ -103,7 +108,8 @@
         }
 
         #board {
-            width: min(92vw, 460px);
+            width: min(92vw, 90%, 460px);
+            max-height: 100%;
             aspect-ratio: 1 / 1;
             display: grid;
             grid-template-columns: repeat(8, 1fr);
@@ -132,6 +138,10 @@
             box-shadow: inset 0 2px 2px rgba(255,255,255,0.35), inset 0 -2px 3px rgba(0,0,0,0.35);
             border: 1px solid rgba(0,0,0,0.25);
         }
+        @keyframes blockPop { from { transform: scale(0.35); opacity: 0.5; } to { transform: scale(1); opacity: 1; } }
+        @keyframes blockClear { to { transform: scale(0.25); opacity: 0; } }
+        .block-face.pop-in { animation: blockPop 0.15s ease-out; }
+        .block-face.clearing { animation: blockClear 0.18s ease-in forwards; }
 
         /* Tray */
         .tray {
@@ -139,21 +149,19 @@
             display: flex;
             justify-content: space-evenly;
             align-items: center;
-            padding: 10px 10px calc(22px + env(safe-area-inset-bottom, 0px));
-            min-height: 110px;
+            padding: 8px 10px calc(18px + env(safe-area-inset-bottom, 0px));
+            min-height: 100px;
+            flex-shrink: 0;
         }
         .tray-slot {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 110px;
-            height: 100px;
+            width: clamp(78px, 28vw, 110px);
+            height: clamp(72px, 25vw, 100px);
             touch-action: none;
         }
-        .piece-grid {
-            display: grid;
-            gap: 2px;
-        }
+        .piece-grid { display: grid; gap: 2px; transition: opacity 0.15s; }
         .piece-grid.dragging-source { opacity: 0.25; }
 
         /* Ghost while dragging */
@@ -165,20 +173,23 @@
             display: grid;
             gap: 3px;
             opacity: 0.95;
+            will-change: left, top;
         }
 
         /* Overlays */
         .overlay-screen {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(11, 15, 25, 0.9);
+            background: rgba(11, 15, 25, 0.92);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 50;
             backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             padding: 20px;
+            overflow-y: auto;
         }
 
         .btn-start {
@@ -241,7 +252,38 @@
         .controls-info span { color: var(--accent); font-weight: bold; }
 
         .final-score-label { color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; font-size: 0.85rem; }
-        .final-score-value { font-size: 2.4rem; font-weight: 800; color: var(--accent); margin: 6px 0 30px; text-shadow: 0 0 10px rgba(0,240,255,0.4); }
+        .final-score-value { font-size: 2.4rem; font-weight: 800; color: var(--accent); margin: 6px 0 18px; text-shadow: 0 0 10px rgba(0,240,255,0.4); }
+
+        .name-input {
+            width: 220px;
+            max-width: 70vw;
+            padding: 12px 16px;
+            border-radius: 30px;
+            border: 2px solid var(--accent);
+            background: rgba(255,255,255,0.06);
+            color: #fff;
+            font-size: 16px; /* cegah auto-zoom iOS saat fokus */
+            text-align: center;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        .name-input::placeholder { color: #94a3b8; }
+
+        .submit-status { margin-top: 10px; font-size: 0.8rem; color: #94a3b8; min-height: 1.2em; text-align: center; }
+
+        .ranking-list { width: 100%; max-width: 320px; max-height: 52vh; overflow-y: auto; margin-bottom: 10px; }
+        .ranking-row {
+            display: flex;
+            align-items: center;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 12px;
+            font-size: 0.9rem;
+        }
+        .ranking-row .rank { color: #facc15; font-weight: 800; width: 30px; flex-shrink: 0; }
+        .ranking-row .rname { flex: 1; text-align: left; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ranking-row .rscore { color: var(--accent); font-weight: 700; flex-shrink: 0; }
     </style>
 </head>
 <body>
@@ -267,6 +309,7 @@
             <h1 class="game-title">BLOCK<span class="nunung">PUZZLE NUNUNG</span></h1>
             <button class="btn-start" id="btn-start">MULAI MAIN</button>
             <button class="btn-menu-secondary" id="btn-howtoplay">CARA MAIN</button>
+            <button class="btn-menu-secondary" id="btn-ranking-menu">RANKING</button>
         </div>
 
         <div id="how-to-play" style="display:none;">
@@ -285,10 +328,81 @@
         <h1 class="game-title">GAME<span class="nunung">OVER</span></h1>
         <div class="final-score-label">SKOR AKHIR</div>
         <div class="final-score-value" id="finalScore">0</div>
-        <button class="btn-start" id="btn-restart">MAIN LAGI</button>
+
+        <input type="text" id="playerName" class="name-input" placeholder="Nama kamu" maxlength="16" autocomplete="off">
+        <button class="btn-start" id="btn-submit-score" style="margin-top:16px;">KIRIM SKOR</button>
+        <div class="submit-status" id="submitStatus"></div>
+
+        <button class="btn-menu-secondary" id="btn-view-ranking">LIHAT RANKING</button>
+        <button class="btn-menu-secondary" id="btn-restart">MAIN LAGI</button>
     </div>
 
+    <div id="ranking-overlay" class="overlay-screen" style="display:none;">
+        <h2 class="howto-title">RANKING</h2>
+        <div class="ranking-list" id="rankingList">Memuat...</div>
+        <button class="btn-menu-secondary" id="btn-ranking-back">KEMBALI</button>
+    </div>
+
+    <!-- Klien Supabase (untuk simpan & ambil data ranking). Lihat konfigurasi di bagian bawah script. -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <script>
+        // =====================================================================
+        // KONFIGURASI SUPABASE — WAJIB DIISI AGAR RANKING ONLINE AKTIF
+        // 1. Buat project di https://supabase.com
+        // 2. Buka SQL Editor, jalankan:
+        //
+        //    create table leaderboard (
+        //      id bigint generated by default as identity primary key,
+        //      name text not null,
+        //      score integer not null,
+        //      created_at timestamptz not null default now()
+        //    );
+        //    alter table leaderboard enable row level security;
+        //    create policy "public read" on leaderboard for select using (true);
+        //    create policy "public insert" on leaderboard for insert with check (true);
+        //
+        // 3. Buka Project Settings > API, salin "Project URL" dan "anon public key"
+        //    ke dua variabel di bawah ini.
+        // Selama dikosongkan, game tetap jalan normal, hanya fitur ranking online nonaktif.
+        // =====================================================================
+        const SUPABASE_URL = '';
+        const SUPABASE_ANON_KEY = '';
+        const TABLE_NAME = 'leaderboard';
+
+        let sb = null;
+        if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
+            try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch (e) { console.log('Supabase init failed:', e); }
+        }
+
+        async function submitScoreToRanking(name, scoreValue) {
+            if (!sb) return { ok: false, reason: 'not-configured' };
+            try {
+                const { error } = await sb.from(TABLE_NAME).insert({ name, score: scoreValue });
+                if (error) throw error;
+                return { ok: true };
+            } catch (err) {
+                console.log('Submit score failed:', err);
+                return { ok: false, reason: 'error' };
+            }
+        }
+
+        async function fetchRanking(limit) {
+            if (!sb) return { ok: false, data: [] };
+            try {
+                const { data, error } = await sb.from(TABLE_NAME).select('name,score').order('score', { ascending: false }).limit(limit || 10);
+                if (error) throw error;
+                return { ok: true, data: data || [] };
+            } catch (err) {
+                console.log('Fetch ranking failed:', err);
+                return { ok: false, data: [] };
+            }
+        }
+
+        function escapeHTML(str) {
+            return String(str).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+        }
+
         // --- AUDIO MANAGER ---
         const audioFiles = {
             bgm: new Audio('Sneaky-Snitch_chosic_com_.mp3'),
@@ -303,7 +417,6 @@
 
         let soundMuted = false;
 
-        // Mainkan backsound utama begitu aplikasi dibuka (di layar menu)
         function playMainBacksound() {
             if (soundMuted) return;
             audioFiles.bgm.play().catch(() => {
@@ -348,7 +461,7 @@
             [[0,0],[0,1],[0,2],[0,3]], [[0,0],[1,0],[2,0],[3,0]],
             [[0,0],[0,1],[0,2],[0,3],[0,4]], [[0,0],[1,0],[2,0],[3,0],[4,0]],
             [[0,0],[0,1],[1,0],[1,1]],
-            [[0,0],[0,1],[0,2],[1,0,],[1,1],[1,2],[2,0],[2,1],[2,2]],
+            [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]],
             [[0,0],[0,1],[1,0]], [[0,0],[0,1],[1,1]], [[0,0],[1,0],[1,1]], [[0,1],[1,0],[1,1]],
             [[0,0],[0,1],[0,2],[1,1]], [[1,0],[1,1],[1,2],[0,1]], [[0,0],[1,0],[2,0],[1,1]], [[0,1],[1,0],[1,1],[2,1]],
             [[0,1],[0,2],[1,0],[1,1]], [[0,0],[0,1],[1,1],[1,2]], [[0,0],[1,0],[1,1],[2,1]], [[0,1],[1,0],[1,1],[2,0]],
@@ -362,6 +475,7 @@
         // --- STATE ---
         const SIZE = 8;
         let board = [];
+        let prevBoardState = [];
         let tray = [null, null, null];
         let score = 0;
         let best = parseInt(localStorage.getItem('bpBestScore') || '0', 10);
@@ -394,6 +508,7 @@
 
         function initBoard() {
             board = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
+            prevBoardState = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
             buildBoardDOM();
             updateBoardVisual();
         }
@@ -406,9 +521,10 @@
         function updateBoardVisual() {
             for (let r = 0; r < SIZE; r++) {
                 for (let c = 0; c < SIZE; c++) {
-                    const cell = cellEls[r][c];
                     const val = board[r][c];
+                    const cell = cellEls[r][c];
                     cell.classList.remove('hl-valid', 'hl-invalid');
+                    if (val === prevBoardState[r][c]) continue;
                     if (val) {
                         cell.classList.add('filled');
                         cell.innerHTML = blockFaceHTML(val);
@@ -418,6 +534,7 @@
                     }
                 }
             }
+            prevBoardState = board.map(row => row.slice());
         }
 
         function clearHighlights() {
@@ -486,23 +603,6 @@
             if (!anyFits) triggerGameOver();
         }
 
-        function clearLines() {
-            const fullRows = [];
-            const fullCols = [];
-            for (let r = 0; r < SIZE; r++) if (board[r].every(v => v)) fullRows.push(r);
-            for (let c = 0; c < SIZE; c++) if (board.every(row => row[c])) fullCols.push(c);
-            if (fullRows.length === 0 && fullCols.length === 0) return { lines: 0, cells: 0 };
-
-            const cellsSet = new Set();
-            fullRows.forEach(r => { for (let c = 0; c < SIZE; c++) cellsSet.add(r + '_' + c); });
-            fullCols.forEach(c => { for (let r = 0; r < SIZE; r++) cellsSet.add(r + '_' + c); });
-            cellsSet.forEach(key => { const [r, c] = key.split('_').map(Number); board[r][c] = null; });
-
-            playSound('clear');
-            vibrate([50, 30, 50]);
-            return { lines: fullRows.length + fullCols.length, cells: cellsSet.size };
-        }
-
         function updateScoreUI() {
             scoreEl.innerText = score;
             if (score > best) {
@@ -517,16 +617,45 @@
             tray[idx] = null;
             playSound('drop');
             vibrate(10);
-
-            const result = clearLines();
-            score += piece.cells.length;
-            if (result.lines > 0) score += result.cells * 3 + (result.lines - 1) * 30;
-            updateScoreUI();
-
             updateBoardVisual();
+            piece.cells.forEach(([dr, dc]) => {
+                const face = cellEls[anchorR + dr][anchorC + dc].querySelector('.block-face');
+                if (face) face.classList.add('pop-in');
+            });
             renderTray();
-            refillTrayIfEmpty();
-            checkGameOver();
+
+            const fullRows = [], fullCols = [];
+            for (let r = 0; r < SIZE; r++) if (board[r].every(v => v)) fullRows.push(r);
+            for (let c = 0; c < SIZE; c++) if (board.every(row => row[c])) fullCols.push(c);
+
+            const finish = () => { refillTrayIfEmpty(); checkGameOver(); };
+
+            if (fullRows.length || fullCols.length) {
+                const cellsSet = new Set();
+                fullRows.forEach(r => { for (let c = 0; c < SIZE; c++) cellsSet.add(r + '_' + c); });
+                fullCols.forEach(c => { for (let r = 0; r < SIZE; r++) cellsSet.add(r + '_' + c); });
+
+                playSound('clear');
+                vibrate([50, 30, 50]);
+                cellsSet.forEach(key => {
+                    const [r, c] = key.split('_').map(Number);
+                    const face = cellEls[r][c].querySelector('.block-face');
+                    if (face) face.classList.add('clearing');
+                });
+
+                const gain = piece.cells.length + cellsSet.size * 3 + (fullRows.length + fullCols.length - 1) * 30;
+                setTimeout(() => {
+                    cellsSet.forEach(key => { const [r, c] = key.split('_').map(Number); board[r][c] = null; });
+                    updateBoardVisual();
+                    score += gain;
+                    updateScoreUI();
+                    finish();
+                }, 200);
+            } else {
+                score += piece.cells.length;
+                updateScoreUI();
+                finish();
+            }
         }
 
         function triggerGameOver() {
@@ -534,18 +663,17 @@
             playSound('gameOver');
             vibrate([100, 50, 200]);
             document.getElementById('finalScore').innerText = score;
+            document.getElementById('playerName').value = localStorage.getItem('bpPlayerName') || '';
+            document.getElementById('submitStatus').textContent = '';
             document.getElementById('gameover-overlay').style.display = 'flex';
             if (!soundMuted) audioFiles.bgm.play().catch(() => {});
         }
 
         // --- DRAG & DROP ---
-        const ghostEl = document.getElementById('ghost') || (() => {
-            const g = document.createElement('div');
-            g.id = 'ghost';
-            g.style.display = 'none';
-            document.body.appendChild(g);
-            return g;
-        })();
+        const ghostEl = document.createElement('div');
+        ghostEl.id = 'ghost';
+        ghostEl.style.display = 'none';
+        document.body.appendChild(ghostEl);
 
         function onDragStart(e) {
             if (!isGameActive) return;
@@ -555,13 +683,18 @@
             e.preventDefault();
             e.currentTarget.setPointerCapture(e.pointerId);
 
-            const boardRect = boardEl.getBoundingClientRect();
-            const cellSize = boardRect.width / SIZE;
+            const c0 = cellEls[0][0].getBoundingClientRect();
+            const c1x = cellEls[0][1].getBoundingClientRect();
+            const c1y = cellEls[1][0].getBoundingClientRect();
+            const originX = c0.left, originY = c0.top;
+            const pitchX = c1x.left - c0.left, pitchY = c1y.top - c0.top;
+            const cellSize = c0.width;
             const { rows, cols } = shapeBounds(piece.cells);
 
             ghostEl.innerHTML = '';
             ghostEl.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
             ghostEl.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
+            ghostEl.style.gap = '3px';
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     const has = piece.cells.some(([pr, pc]) => pr === r && pc === c);
@@ -573,7 +706,7 @@
             ghostEl.style.display = 'grid';
             e.currentTarget.querySelector('.piece-grid').classList.add('dragging-source');
 
-            activeDrag = { idx, piece, cellSize, boardRect, slotEl: e.currentTarget, cols, rows };
+            activeDrag = { idx, piece, cellSize, originX, originY, pitchX, pitchY, slotEl: e.currentTarget, cols, rows };
             lastValidAnchor = null;
             moveGhost(e);
 
@@ -584,9 +717,9 @@
 
         function moveGhost(e) {
             if (!activeDrag) return;
-            const { cellSize, cols, rows } = activeDrag;
-            const w = cols * cellSize + (cols - 1) * 3;
-            const h = rows * cellSize + (rows - 1) * 3;
+            const { cellSize, pitchX, pitchY, cols, rows } = activeDrag;
+            const w = cols * pitchX - (pitchX - cellSize);
+            const h = rows * pitchY - (pitchY - cellSize);
             const liftY = 90;
             const gx = e.clientX - w / 2;
             const gy = e.clientY - h - liftY + cellSize;
@@ -599,11 +732,11 @@
             if (!activeDrag) return;
             e.preventDefault();
             const { gx, gy } = moveGhost(e);
-            const { boardRect, cellSize, piece } = activeDrag;
+            const { originX, originY, pitchX, pitchY, piece } = activeDrag;
 
             clearHighlights();
-            const anchorC = Math.round((gx - boardRect.left) / cellSize);
-            const anchorR = Math.round((gy - boardRect.top) / cellSize);
+            const anchorC = Math.round((gx - originX) / pitchX);
+            const anchorR = Math.round((gy - originY) / pitchY);
             const valid = checkPlacement(piece.cells, anchorR, anchorC);
 
             if (anchorR > -3 && anchorR < SIZE + 2 && anchorC > -3 && anchorC < SIZE + 2) {
@@ -654,9 +787,41 @@
             else if (!isGameActive) audioFiles.bgm.play().catch(() => {});
         });
 
+        // --- RANKING ---
+        async function openRanking() {
+            document.getElementById('ranking-overlay').style.display = 'flex';
+            const listEl = document.getElementById('rankingList');
+            listEl.innerHTML = 'Memuat...';
+            if (!sb) { listEl.innerHTML = '<div class="submit-status">Ranking online belum diaktifkan.</div>'; return; }
+            const res = await fetchRanking(10);
+            if (!res.ok) { listEl.innerHTML = '<div class="submit-status">Gagal memuat ranking. Cek koneksi internet.</div>'; return; }
+            if (res.data.length === 0) { listEl.innerHTML = '<div class="submit-status">Belum ada skor masuk.</div>'; return; }
+            listEl.innerHTML = res.data.map((row, i) =>
+                `<div class="ranking-row"><span class="rank">#${i + 1}</span><span class="rname">${escapeHTML(row.name || 'Anonim')}</span><span class="rscore">${row.score}</span></div>`
+            ).join('');
+        }
+        document.getElementById('btn-ranking-menu').addEventListener('click', openRanking);
+        document.getElementById('btn-view-ranking').addEventListener('click', openRanking);
+        document.getElementById('btn-ranking-back').addEventListener('click', () => {
+            document.getElementById('ranking-overlay').style.display = 'none';
+        });
+
+        document.getElementById('btn-submit-score').addEventListener('click', async () => {
+            const input = document.getElementById('playerName');
+            const statusEl = document.getElementById('submitStatus');
+            const name = (input.value || '').trim().slice(0, 16) || 'Anonim';
+            localStorage.setItem('bpPlayerName', name);
+            if (!sb) { statusEl.textContent = 'Ranking online belum diaktifkan.'; return; }
+            statusEl.textContent = 'Mengirim...';
+            const res = await submitScoreToRanking(name, score);
+            statusEl.textContent = res.ok ? 'Skor terkirim! ✔' : 'Gagal mengirim skor.';
+        });
+
+        // --- GAME START ---
         function startGame() {
             document.getElementById('start-overlay').style.display = 'none';
             document.getElementById('gameover-overlay').style.display = 'none';
+            document.getElementById('ranking-overlay').style.display = 'none';
             isGameActive = true;
             score = 0;
             updateScoreUI();
